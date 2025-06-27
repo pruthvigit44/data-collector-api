@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import express from 'express';
 import Data from '../models/Data.js';
 import { protect } from '../middleware/auth.js';
@@ -17,15 +18,34 @@ router.get('/',protect, async (req, res) => {
 
 
 //get individual student by ID
-router.get('/:id', async (req, res) => {
+// router.get('/:id', async (req, res) => {
+//   try {
+//     const data = await Data.findById(req.params.id);
+//     if (!data) return res.status(404).json({ message: "Student not found" });
+//     res.json(data);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// });
+
+// New (with `protect` middleware and ownership check)
+router.get('/:id', protect, async (req, res) => {
   try {
-    const data = await Data.findById(req.params.id);
-    if (!data) return res.status(404).json({ message: "Student not found" });
-    res.json(data);
+    const student = await Data.findOne({
+      _id: req.params.id,
+      createdBy: req.user.userId,
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found or unauthorized' });
+    }
+
+    res.json(student);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 //Add a new student
 // router.post('/',protect, async (req, res) => {
@@ -58,37 +78,81 @@ router.post('/', protect, async (req, res) => {
 });
 
 // Update a student's data
-router.put('/:id', async (req, res) => {
+// router.put('/:id', async (req, res) => {
+//   try {
+//     const updatedData = await Data.findByIdAndUpdate(req.params.id, req.body, {
+//       new: true,
+//       runValidators: true,
+//     });
+//     if (!updatedData) return res.status(404).json({ message: "Student not found" });
+//     res.json(updatedData);
+//   } catch (error) {
+//     res.status(400).json({ message: error.message });
+//   }
+// });
+
+// New (with protect + ownership check)
+router.put('/:id', protect, async (req, res) => {
   try {
-    const updatedData = await Data.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!updatedData) return res.status(404).json({ message: "Student not found" });
-    res.json(updatedData);
+    const updatedStudent = await Data.findOneAndUpdate(
+      { _id: req.params.id, createdBy: req.user.userId },
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedStudent) {
+      return res.status(404).json({ message: 'Student not found or unauthorized' });
+    }
+
+    res.json(updatedStudent);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 });
 
-import mongoose from 'mongoose';
 
-router.delete('/:id', async (req, res) => {
+
+// router.delete('/:id', async (req, res) => {
+//   const { id } = req.params;
+
+//   if (!mongoose.Types.ObjectId.isValid(id)) {
+//     return res.status(400).json({ message: "Invalid student ID format" });
+//   }
+
+//   try {
+//     const deletedData = await Data.findByIdAndDelete(id);
+//     if (!deletedData)
+//       return res.status(404).json({ message: "Student not found" });
+
+//     res.json({ message: "Student deleted successfully" });
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// });
+
+// New (with protect + ownership check)
+router.delete('/:id', protect, async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: "Invalid student ID format" });
+    return res.status(400).json({ message: 'Invalid student ID format' });
   }
 
   try {
-    const deletedData = await Data.findByIdAndDelete(id);
-    if (!deletedData)
-      return res.status(404).json({ message: "Student not found" });
+    const deletedData = await Data.findOneAndDelete({
+      _id: id,
+      createdBy: req.user.userId,
+    });
 
-    res.json({ message: "Student deleted successfully" });
+    if (!deletedData) {
+      return res.status(404).json({ message: 'Student not found or unauthorized' });
+    }
+
+    res.json({ message: 'Student deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 export default router;
