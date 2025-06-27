@@ -16,7 +16,9 @@ export const protect = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET); // 👈 Make sure this matches the secret used in login
 
       // Attach user info to request object
-      req.user = { userId: decoded.id }; // 👈 Must match login payload
+      // req.user = { userId: decoded.id }; // 👈 Must match login payload
+      req.user = { userId: decoded.userId }; // 👈 Fix: match payload
+
 
       next();
     } catch (error) {
