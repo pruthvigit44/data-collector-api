@@ -27,7 +27,13 @@ const dataSchema = new mongoose.Schema({
         score: Number,
         maxScore: Number
     }],
-    remarks: { type: String }
+    remarks: { type: String },
+    createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    },
+
 });
 
 const Data = mongoose.model("Student", dataSchema);

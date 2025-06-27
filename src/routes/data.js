@@ -1,12 +1,14 @@
 import express from 'express';
 import Data from '../models/Data.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Get list of all students
-router.get('/', async (req, res) => {
+router.get('/',protect, async (req, res) => {
   try {
-    const data = await Data.find();
+    // const data = await Data.find();
+    const data = await Data.find({ createdBy: req.user.userId }); 
     res.status(200).json(data);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -26,12 +28,30 @@ router.get('/:id', async (req, res) => {
 });
 
 //Add a new student
-router.post('/', async (req, res) => {
-  const newData = new Data(req.body);
+// router.post('/',protect, async (req, res) => {
+//   // const newData = new Data(req.body);
+//   const newStudent = new Data({
+//       ...req.body,
+//       createdBy: req.user.userId, // 👈 Store user ID
+//     });
 
+//   try {
+//     const savedData = await newData.save();
+//     res.status(201).json(savedData);
+//   } catch (error) {
+//     res.status(400).json({ message: error.message });
+//   }
+// });
+
+router.post('/', protect, async (req, res) => {
   try {
-    const savedData = await newData.save();
-    res.status(201).json(savedData);
+    const newStudent = new Data({
+      ...req.body,
+      createdBy: req.user.userId, // 👈 Store user ID
+    });
+
+    const savedStudent = await newStudent.save();
+    res.status(201).json(savedStudent);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
