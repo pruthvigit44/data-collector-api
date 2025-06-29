@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/',protect, async (req, res) => {
   try {
     // const data = await Data.find();
-    const data = await Data.find({ createdBy: req.user.userId }); 
+    const data = await Data.find({ createdBy: req.user.userId }).populate('createdBy');
     res.status(200).json(data);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -34,7 +34,7 @@ router.get('/:id', protect, async (req, res) => {
     const student = await Data.findOne({
       _id: req.params.id,
       createdBy: req.user.userId,
-    });
+    }).populate('createdBy');
 
     if (!student) {
       return res.status(404).json({ message: 'Student not found or unauthorized' });

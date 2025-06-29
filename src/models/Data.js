@@ -18,15 +18,6 @@ const dataSchema = new mongoose.Schema({
     class: { type: String, required: true },
     section: { type: String },
     admissionDate: { type: Date, default: Date.now },
-    attendance: [{
-        date: Date,
-        status: { type: String, enum: ['Present', 'Absent', 'Leave'] }
-    }],
-    grades: [{
-        subject: String,
-        score: Number,
-        maxScore: Number
-    }],
     remarks: { type: String },
     createdBy: {
     type: mongoose.Schema.Types.ObjectId,
