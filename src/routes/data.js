@@ -65,14 +65,21 @@ router.get('/:id', protect, async (req, res) => {
 
 router.post('/', protect, async (req, res) => {
   try {
+    console.log("Received request body:", req.body); // Log the incoming data
+    if (!req.user || !req.user.userId) {
+      console.error("User not authenticated, req.user:", req.user);
+      return res.status(401).json({ message: "User not authenticated" });
+    }
     const newStudent = new Data({
       ...req.body,
-      createdBy: req.user.userId, // 👈 Store user ID
+      createdBy: req.user.userId,
     });
-
-    const savedStudent = await newStudent.save();
+    console.log("New student before save:", newStudent); // Log before save
+    const savedStudent = await newStudent.save({ runValidators: true });
+    console.log("Saved student:", savedStudent); // Log after save
     res.status(201).json(savedStudent);
   } catch (error) {
+    console.error("Error creating student:", error.message, error.stack); // Log full error
     res.status(400).json({ message: error.message });
   }
 });
