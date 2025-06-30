@@ -14,7 +14,9 @@ export const protect = async (req, res, next) => {
         return res.status(401).json({ message: "Invalid token payload" });
       }
 
-      req.user = decoded.userId; // attach userId directly
+      // req.user = decoded.userId; // attach userId directly
+      req.user = { userId: decoded.userId };
+
       next();
     } catch (error) {
       console.error("Auth error:", error.message);

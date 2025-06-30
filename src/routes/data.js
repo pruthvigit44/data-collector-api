@@ -72,7 +72,7 @@ router.post('/', protect, async (req, res) => {
     }
     const newStudent = new Data({
       ...req.body,
-      createdBy: req.user.userId,
+      createdBy: req.user.userId, // Store user ID
     });
     console.log("New student before save:", newStudent.toObject());
     const savedStudent = await newStudent.save({ runValidators: true });
