@@ -31,6 +31,12 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  resetOTP: {
+  type: String,
+},
+otpExpires: {
+  type: Date,
+},
 });
 
 userSchema.pre("save", async function (next) {
