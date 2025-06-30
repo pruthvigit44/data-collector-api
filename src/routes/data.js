@@ -6,15 +6,21 @@ import { protect } from '../middleware/auth.js';
 const router = express.Router();
 
 // Get list of all students
-router.get('/',protect, async (req, res) => {
+router.get('/', protect, async (req, res) => {
+  console.log("Fetching for userId:", req.user.userId); // ⬅️ log this
+
   try {
-    // const data = await Data.find();
-    const data = await Data.find({ createdBy: req.user.userId }).populate('createdBy');
-    res.status(200).json(data);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const students = await Data.find({ createdBy: req.user.userId });
+
+    console.log("Students fetched:", students); // ⬅️ log this
+
+    res.status(200).json(students);
+  } catch (err) {
+    console.error("Error fetching students:", err);
+    res.status(500).json({ message: err.message });
   }
 });
+
 
 
 //get individual student by ID
@@ -46,22 +52,6 @@ router.get('/:id', protect, async (req, res) => {
   }
 });
 
-
-//Add a new student
-// router.post('/',protect, async (req, res) => {
-//   // const newData = new Data(req.body);
-//   const newStudent = new Data({
-//       ...req.body,
-//       createdBy: req.user.userId, // 👈 Store user ID
-//     });
-
-//   try {
-//     const savedData = await newData.save();
-//     res.status(201).json(savedData);
-//   } catch (error) {
-//     res.status(400).json({ message: error.message });
-//   }
-// });
 
 router.post('/', protect, async (req, res) => {
   try {
