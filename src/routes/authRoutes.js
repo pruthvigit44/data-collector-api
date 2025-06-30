@@ -13,7 +13,7 @@ router.post('/register', async (req, res) => {
   // Handle login logic here
 //   res.send({ message: 'Registration successful' });
 try {
-    const { email,username, password } = req.body;
+    const { email,username, password,className } = req.body;
 
     if(!email || !username || !password) {
         return res.status(400).json({ error: 'All fields are required' });
@@ -38,6 +38,7 @@ try {
         email,
         username,
         password,
+        class: className, // Assuming 'class' is a required field
         profileImage: `https://api.dicebear.com/5.x/initials/svg?seed=${username}`,
     });
 
