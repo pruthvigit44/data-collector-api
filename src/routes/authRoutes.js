@@ -1,8 +1,12 @@
 import express from 'express';
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
+
 
 const router = express.Router();
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 
 const generateToken = (userId) => {
     return jwt.sign({ userId }, 
@@ -97,6 +101,51 @@ router.post('/login', async (req, res) => {
         console.log("Error in login route", error);
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+router.post('/google-login', async (req, res) => {
+  const { idToken } = req.body;
+
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name, picture } = payload;
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Generate a fallback username from the name
+      const usernameBase = name?.replace(/\s/g, '').toLowerCase() || 'user';
+      const username = `${usernameBase}_${Math.floor(Math.random() * 1000)}`;
+
+      user = await User.create({
+        username,
+        email,
+        password: Math.random().toString(36).slice(-8), // Dummy password
+        class: 'N/A',
+        profileImage: picture,
+      });
+    }
+
+    const token = generateToken(user._id);
+
+    res.status(200).json({
+      token,
+      user: {
+        _id: user._id,
+        email: user.email,
+        username: user.username,
+        profileImage: user.profileImage,
+      },
+    });
+  } catch (error) {
+    console.error('Google login error:', error);
+    res.status(401).json({ error: 'Invalid Google Token' });
+  }
 });
 
 
