@@ -6,20 +6,23 @@ import { protect } from '../middleware/auth.js';
 const router = express.Router();
 
 const generateRegistrationNumber = async () => {
-  const result = await Data.aggregate([
-    {
-      $addFields: {
-        numericReg: { $toInt: "$registrationNumber" },
-      },
-    },
-    { $sort: { numericReg: -1 } },
-    { $limit: 1 },
-  ]);
+  const lastStudent = await Data.findOne({})
+    .sort({ admissionDate: -1 }) // OR sort by _id: -1
+    .select('registrationNumber');
 
-  const lastNumber = result[0]?.numericReg || 0;
+  let lastNumber = 0;
+
+  if (lastStudent && lastStudent.registrationNumber) {
+    const match = lastStudent.registrationNumber.match(/S(\d+)/);
+    if (match) {
+      lastNumber = parseInt(match[1], 10);
+    }
+  }
+
   const nextNumber = lastNumber + 1;
-  return nextNumber.toString().padStart(3, '0');  // → "001", "002"
+  return `S${nextNumber.toString().padStart(3, '0')}`; // e.g. S001, S002
 };
+
 
 
 
@@ -98,7 +101,7 @@ router.post('/', protect, async (req, res) => {
 
     const newStudent = new Data({
       ...req.body,
-      // registrationNumber, // auto set
+      registrationNumber, // auto set
       createdBy: req.user.userId,
     });
 
