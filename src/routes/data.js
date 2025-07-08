@@ -18,8 +18,9 @@ const generateRegistrationNumber = async () => {
 
   const lastNumber = result[0]?.numericReg || 0;
   const nextNumber = lastNumber + 1;
-  return nextNumber.toString().padStart(3, '0'); // 👈 gives "001", "002", ...
+  return nextNumber.toString().padStart(3, '0');  // → "001", "002"
 };
+
 
 
 // Get list of all students
@@ -97,7 +98,7 @@ router.post('/', protect, async (req, res) => {
 
     const newStudent = new Data({
       ...req.body,
-      registrationNumber, // auto set
+      // registrationNumber, // auto set
       createdBy: req.user.userId,
     });
 
