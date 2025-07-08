@@ -6,13 +6,21 @@ import { protect } from '../middleware/auth.js';
 const router = express.Router();
 
 const generateRegistrationNumber = async () => {
-  const lastStudent = await Data.findOne().sort({ registrationNumber: -1 });
-  if (!lastStudent || !lastStudent.registrationNumber) return 'S001';
+  const result = await Data.aggregate([
+    {
+      $addFields: {
+        numericReg: { $toInt: "$registrationNumber" },
+      },
+    },
+    { $sort: { numericReg: -1 } },
+    { $limit: 1 },
+  ]);
 
-  const lastNumber = parseInt(lastStudent.registrationNumber.slice(1)) || 0;
+  const lastNumber = result[0]?.numericReg || 0;
   const nextNumber = lastNumber + 1;
-  return `S${nextNumber.toString().padStart(3, '0')}`;
+  return nextNumber.toString().padStart(3, '0'); // 👈 gives "001", "002", ...
 };
+
 
 // Get list of all students
 router.get('/', protect, async (req, res) => {
