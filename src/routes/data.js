@@ -6,21 +6,36 @@ import { protect } from '../middleware/auth.js';
 const router = express.Router();
 
 const generateRegistrationNumber = async () => {
-  const lastStudent = await Data.findOne({})
-    .sort({ admissionDate: -1 }) // OR sort by _id: -1
+  try {
+    // Find the student with the highest registration number
+    const lastStudent = await Data.findOne({
+      registrationNumber: { $regex: /^S\d+$/ } // Only match our format
+    })
+    .sort({ registrationNumber: -1 }) // Sort by registration number descending
     .select('registrationNumber');
 
-  let lastNumber = 0;
+    console.log('Last student found:', lastStudent); // Debug log
 
-  if (lastStudent && lastStudent.registrationNumber) {
-    const match = lastStudent.registrationNumber.match(/S(\d+)/);
-    if (match) {
-      lastNumber = parseInt(match[1], 10);
+    let lastNumber = 0;
+
+    if (lastStudent && lastStudent.registrationNumber) {
+      const match = lastStudent.registrationNumber.match(/^S(\d+)$/);
+      if (match) {
+        lastNumber = parseInt(match[1], 10);
+        console.log('Last number extracted:', lastNumber); // Debug log
+      }
     }
-  }
 
-  const nextNumber = lastNumber + 1;
-  return `S${nextNumber.toString().padStart(3, '0')}`; // e.g. S001, S002
+    const nextNumber = lastNumber + 1;
+    const newRegistrationNumber = `S${nextNumber.toString().padStart(3, '0')}`;
+    
+    console.log('Generated registration number:', newRegistrationNumber); // Debug log
+    
+    return newRegistrationNumber;
+  } catch (error) {
+    console.error('Error generating registration number:', error);
+    throw error;
+  }
 };
 
 
