@@ -5,6 +5,15 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const generateRegistrationNumber = async () => {
+  const lastStudent = await Data.findOne().sort({ registrationNumber: -1 });
+  if (!lastStudent || !lastStudent.registrationNumber) return 'S001';
+
+  const lastNumber = parseInt(lastStudent.registrationNumber.slice(1)) || 0;
+  const nextNumber = lastNumber + 1;
+  return `S${nextNumber.toString().padStart(3, '0')}`;
+};
+
 // Get list of all students
 router.get('/', protect, async (req, res) => {
   console.log("Fetching for userId:", req.user.userId); // ⬅️ log this
@@ -53,40 +62,44 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 
-router.post('/', protect, async (req, res) => {
-  try {
-    console.log("Received request body:", req.body);
-    if (!req.user || !req.user.userId) {
-      console.error("User not authenticated, req.user:", req.user);
-      return res.status(401).json({ message: "User not authenticated" });
-    }
-    const newStudent = new Data({
-      ...req.body,
-      createdBy: req.user.userId, // Store user ID
-    });
-    console.log("New student before save:", newStudent.toObject());
-    const savedStudent = await newStudent.save({ runValidators: true });
-    console.log("Saved student after save:", savedStudent.toObject());
-    res.status(201).json(savedStudent);
-  } catch (error) {
-    console.error("Error creating student:", error.message, error.stack);
-    res.status(400).json({ message: error.message, stack: error.stack });
-  }
-});
-
-// Update a student's data
-// router.put('/:id', async (req, res) => {
+// router.post('/', protect, async (req, res) => {
 //   try {
-//     const updatedData = await Data.findByIdAndUpdate(req.params.id, req.body, {
-//       new: true,
-//       runValidators: true,
+//     console.log("Received request body:", req.body);
+//     if (!req.user || !req.user.userId) {
+//       console.error("User not authenticated, req.user:", req.user);
+//       return res.status(401).json({ message: "User not authenticated" });
+//     }
+//     const newStudent = new Data({
+//       ...req.body,
+//       createdBy: req.user.userId, // Store user ID
 //     });
-//     if (!updatedData) return res.status(404).json({ message: "Student not found" });
-//     res.json(updatedData);
+//     console.log("New student before save:", newStudent.toObject());
+//     const savedStudent = await newStudent.save({ runValidators: true });
+//     console.log("Saved student after save:", savedStudent.toObject());
+//     res.status(201).json(savedStudent);
 //   } catch (error) {
-//     res.status(400).json({ message: error.message });
+//     console.error("Error creating student:", error.message, error.stack);
+//     res.status(400).json({ message: error.message, stack: error.stack });
 //   }
 // });
+
+router.post('/', protect, async (req, res) => {
+  try {
+    const registrationNumber = await generateRegistrationNumber();
+
+    const newStudent = new Data({
+      ...req.body,
+      registrationNumber, // auto set
+      createdBy: req.user.userId,
+    });
+
+    const savedStudent = await newStudent.save({ runValidators: true });
+    res.status(201).json(savedStudent);
+  } catch (error) {
+    console.error("Error creating student:", error);
+    res.status(400).json({ message: error.message });
+  }
+});
 
 // New (with protect + ownership check)
 router.put('/:id', protect, async (req, res) => {

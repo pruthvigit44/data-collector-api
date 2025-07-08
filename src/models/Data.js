@@ -3,7 +3,7 @@ import mongoose  from "mongoose";
 const dataSchema = new mongoose.Schema({
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
-    rollNumber: { type: String, required: true, unique: true },
+    registrationNumber: { type: Number, required: true, unique: true },
     dateOfBirth: { type: Date, required: true },
     gender: { type: String, enum: ['Male', 'Female', 'Other'], required: true },
     address: {
