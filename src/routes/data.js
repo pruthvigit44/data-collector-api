@@ -5,36 +5,22 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const Sequence = mongoose.model('Sequence', new mongoose.Schema({
+  name: String,
+  value: Number
+}));
+
 const generateRegistrationNumber = async () => {
   try {
-    // Find the student with the highest registration number
-    const lastStudent = await Data.findOne({
-      registrationNumber: { $regex: /^S\d+$/ } // Only match our format
-    })
-    .sort({ registrationNumber: -1 }) // Sort by registration number descending
-    .select('registrationNumber');
-
-    console.log('Last student found:', lastStudent); // Debug log
-
-    let lastNumber = 0;
-
-    if (lastStudent && lastStudent.registrationNumber) {
-      const match = lastStudent.registrationNumber.match(/^S(\d+)$/);
-      if (match) {
-        lastNumber = parseInt(match[1], 10);
-        console.log('Last number extracted:', lastNumber); // Debug log
-      }
-    }
-
-    const nextNumber = lastNumber + 1;
-    const newRegistrationNumber = `S${nextNumber.toString().padStart(3, '0')}`;
-    
-    console.log('Generated registration number:', newRegistrationNumber); // Debug log
-    
-    return newRegistrationNumber;
+    const sequence = await Sequence.findOneAndUpdate(
+      { name: 'registrationNumber' },
+      { $inc: { value: 1 } },
+      { upsert: true, new: true, setDefaultsOnInsert: { value: 0 } }
+    );
+    return `S${sequence.value.toString().padStart(3, '0')}`;
   } catch (error) {
     console.error('Error generating registration number:', error);
-    throw error;
+    throw new Error('Could not generate registration number');
   }
 };
 
