@@ -19,7 +19,8 @@ const dataSchema = new mongoose.Schema({
     section: { type: String },
     admissionDate: { type: Date, default: Date.now },
     remarks: { type: String },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true } // Reference to the user who created the record
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Reference to the user who created the record
+    image: { type: String },    
 
 });
 

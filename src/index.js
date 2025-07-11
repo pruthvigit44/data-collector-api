@@ -20,6 +20,7 @@ app.use(cors()); // Enable CORS for all routes
 
 app.use("/api/auth",authRoutes);
 app.use("/api/data", protect,data);
+app.use("/uploads", express.static("uploads"));
 
 app.listen(PORT, () => {
   console.log(`Server is running on ${PORT}`);
