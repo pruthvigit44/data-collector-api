@@ -3,81 +3,38 @@ import express from "express";
 import Data from "../models/Data.js";
 import { protect } from "../middleware/auth.js";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
+import { cloudinary, storage } from "../lib/cloudinary.js";
 import archiver from "archiver";
+import stream from "stream";
 
 const router = express.Router();
-
-// ✅ FIX: Absolute safe path
-const uploadsDir = path.join(process.cwd(), "uploads");
-
-// Configure Multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const tempName = `temp_${Date.now()}${ext}`;
-    cb(null, tempName);
-  },
-});
-
-const upload = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    const filetypes = /jpeg|jpg|png/;
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = filetypes.test(file.mimetype);
-    if (extname && mimetype) {
-      return cb(null, true);
-    }
-    cb(new Error("Only JPEG and PNG images are allowed"));
-  },
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-}).single("image");
+const upload = multer({ storage }).single("image");
 
 const generateRegistrationNumber = async () => {
-  try {
-    const lastStudent = await Data.findOne({
-      registrationNumber: { $regex: /^S\d+$/ },
-    })
-      .sort({ registrationNumber: -1 })
-      .select("registrationNumber");
+  const lastStudent = await Data.findOne({ registrationNumber: { $regex: /^S\d+$/ } })
+    .sort({ registrationNumber: -1 })
+    .select("registrationNumber");
 
-    let lastNumber = 0;
-    if (lastStudent && lastStudent.registrationNumber) {
-      const match = lastStudent.registrationNumber.match(/^S(\d+)$/);
-      if (match) {
-        lastNumber = parseInt(match[1], 10);
-      }
-    }
-    const nextNumber = lastNumber + 1;
-    return `S${nextNumber.toString().padStart(3, "0")}`;
-  } catch (error) {
-    console.error("Error generating registration number:", error);
-    throw new Error("Could not generate registration number");
+  let lastNumber = 0;
+  if (lastStudent?.registrationNumber) {
+    const match = lastStudent.registrationNumber.match(/^S(\d+)$/);
+    if (match) lastNumber = parseInt(match[1], 10);
   }
+
+  return `S${(lastNumber + 1).toString().padStart(3, "0")}`;
 };
 
-// 🟢 GET all students
+// GET all students
 router.get("/", protect, async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.user.userId)) {
-      return res.status(401).json({ message: "Invalid user ID" });
-    }
     const students = await Data.find({ createdBy: req.user.userId });
     res.status(200).json(students);
   } catch (err) {
-    console.error("Error fetching students:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
+// DOWNLOAD images as ZIP (Cloudinary URLs are fetched)
 router.get("/download-images", protect, async (req, res) => {
   try {
     const students = await Data.find({ createdBy: req.user.userId }).select("image registrationNumber firstName");
@@ -89,62 +46,47 @@ router.get("/download-images", protect, async (req, res) => {
 
     for (const student of students) {
       if (student.image) {
-        const imagePath = path.join(uploadsDir, path.basename(student.image)); // ✅ fix: ensure correct image path
-        if (fs.existsSync(imagePath)) {
-          const filename = `${student.registrationNumber}_${student.firstName}${path.extname(imagePath)}`;
-          archive.file(imagePath, { name: filename });
-        } else {
-          console.warn("Missing image for student:", student._id, imagePath);
-        }
+        const response = await fetch(student.image);
+        if (!response.ok) continue;
+
+        const buffer = await response.arrayBuffer();
+        const readable = new stream.PassThrough();
+        readable.end(Buffer.from(buffer));
+
+        const filename = `${student.registrationNumber}_${student.firstName}.jpg`;
+        archive.append(readable, { name: filename });
       }
     }
 
-    archive.finalize();
+    await archive.finalize();
   } catch (error) {
-    console.error("ZIP creation error:", error);
-    res.status(500).json({ message: "Failed to create ZIP file" });
+    console.error("ZIP error:", error);
+    res.status(500).json({ message: "Failed to create ZIP" });
   }
 });
 
-// 🟢 GET student by ID
+// GET by ID
 router.get("/:id", protect, async (req, res) => {
-  try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid student ID format" });
-    }
-    const student = await Data.findOne({
-      _id: req.params.id,
-      createdBy: req.user.userId,
-    });
-    if (!student) {
-      return res.status(404).json({ message: "Student not found or unauthorized" });
-    }
-    res.json(student);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: "Invalid student ID" });
   }
+  const student = await Data.findOne({ _id: req.params.id, createdBy: req.user.userId });
+  if (!student) return res.status(404).json({ message: "Not found or unauthorized" });
+  res.json(student);
 });
 
-// 🟢 POST: Create new student
+// CREATE student
 router.post("/", protect, (req, res) => {
   upload(req, res, async (err) => {
     if (err) return res.status(400).json({ message: err.message });
 
     try {
-      if (!mongoose.Types.ObjectId.isValid(req.user.userId)) {
-        return res.status(401).json({ message: "Invalid user ID" });
-      }
-
       const registrationNumber = await generateRegistrationNumber();
       const { firstName } = req.body;
 
       let imagePath;
-      if (req.file) {
-        const ext = path.extname(req.file.originalname);
-        const newFilename = `${registrationNumber}_${firstName}${ext}`;
-        const newPath = path.join(uploadsDir, newFilename);
-        fs.renameSync(req.file.path, newPath);
-        imagePath = `/uploads/${newFilename}`;
+      if (req.file && req.file.path) {
+        imagePath = req.file.path; // Cloudinary URL
       }
 
       const newStudent = new Data({
@@ -157,42 +99,32 @@ router.post("/", protect, (req, res) => {
       const savedStudent = await newStudent.save({ runValidators: true });
       res.status(201).json(savedStudent);
     } catch (error) {
-      console.error("Error creating student:", error);
+      console.error("Create error:", error);
       res.status(400).json({ message: error.message });
     }
   });
 });
 
-// 🟢 PUT: Update student
+// UPDATE student
 router.put("/:id", protect, (req, res) => {
   upload(req, res, async (err) => {
     if (err) return res.status(400).json({ message: err.message });
 
     try {
       const { id } = req.params;
-      if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(req.user.userId)) {
-        return res.status(400).json({ message: "Invalid ID" });
-      }
-
       const student = await Data.findById(id);
       if (!student || String(student.createdBy) !== req.user.userId) {
-        return res.status(404).json({ message: "Student not found or unauthorized" });
+        return res.status(404).json({ message: "Not found or unauthorized" });
       }
 
-      let imagePath = req.body.image;
-      if (req.file) {
-        const ext = path.extname(req.file.originalname);
-        const newFilename = `${student.registrationNumber}_${req.body.firstName || student.firstName}${ext}`;
-        const newPath = path.join(uploadsDir, newFilename);
-        fs.renameSync(req.file.path, newPath);
-        imagePath = `/uploads/${newFilename}`;
+      let imagePath = student.image;
+      if (req.file && req.file.path) {
+        imagePath = req.file.path;
 
-        // Delete old image
+        // Optional: delete old image from Cloudinary
         if (student.image) {
-          const oldPath = path.join(process.cwd(), student.image);
-          if (fs.existsSync(oldPath)) {
-            fs.unlinkSync(oldPath);
-          }
+          const publicId = student.image.split('/').pop().split('.')[0];
+          await cloudinary.uploader.destroy(`student-images/${publicId}`);
         }
       }
 
@@ -204,43 +136,34 @@ router.put("/:id", protect, (req, res) => {
 
       res.json(updatedStudent);
     } catch (error) {
-      console.error("Error updating student:", error);
       res.status(400).json({ message: error.message });
     }
   });
 });
 
-// 🟢 DELETE student
+// DELETE student
 router.delete("/:id", protect, async (req, res) => {
   const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: "Invalid student ID format" });
+    return res.status(400).json({ message: "Invalid ID format" });
   }
-  try {
-    const deletedData = await Data.findOneAndDelete({
-      _id: id,
-      createdBy: req.user.userId,
-    });
 
-    if (!deletedData) {
-      return res.status(404).json({ message: "Student not found or unauthorized" });
+  try {
+    const student = await Data.findOneAndDelete({ _id: id, createdBy: req.user.userId });
+
+    if (!student) {
+      return res.status(404).json({ message: "Not found or unauthorized" });
     }
 
-    // Delete associated image
-    if (deletedData.image) {
-      const imagePath = path.join(process.cwd(), deletedData.image);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
-      }
+    if (student.image) {
+      const publicId = student.image.split('/').pop().split('.')[0];
+      await cloudinary.uploader.destroy(`student-images/${publicId}`);
     }
 
     res.json({ message: "Student deleted successfully" });
   } catch (error) {
-    console.error("Error deleting student:", error);
     res.status(500).json({ message: error.message });
   }
 });
-
-// 🟢 DOWNLOAD all student images as ZIP
 
 export default router;
