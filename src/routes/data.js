@@ -78,6 +78,34 @@ router.get("/", protect, async (req, res) => {
   }
 });
 
+router.get("/download-images", protect, async (req, res) => {
+  try {
+    const students = await Data.find({ createdBy: req.user.userId }).select("image registrationNumber firstName");
+
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", "attachment; filename=student-images.zip");
+    archive.pipe(res);
+
+    for (const student of students) {
+      if (student.image) {
+        const imagePath = path.join(uploadsDir, path.basename(student.image)); // ✅ fix: ensure correct image path
+        if (fs.existsSync(imagePath)) {
+          const filename = `${student.registrationNumber}_${student.firstName}${path.extname(imagePath)}`;
+          archive.file(imagePath, { name: filename });
+        } else {
+          console.warn("Missing image for student:", student._id, imagePath);
+        }
+      }
+    }
+
+    archive.finalize();
+  } catch (error) {
+    console.error("ZIP creation error:", error);
+    res.status(500).json({ message: "Failed to create ZIP file" });
+  }
+});
+
 // 🟢 GET student by ID
 router.get("/:id", protect, async (req, res) => {
   try {
@@ -214,32 +242,5 @@ router.delete("/:id", protect, async (req, res) => {
 });
 
 // 🟢 DOWNLOAD all student images as ZIP
-router.get("/download-images", protect, async (req, res) => {
-  try {
-    const students = await Data.find({ createdBy: req.user.userId }).select("image registrationNumber firstName");
-
-    const archive = archiver("zip", { zlib: { level: 9 } });
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", "attachment; filename=student-images.zip");
-    archive.pipe(res);
-
-    for (const student of students) {
-      if (student.image) {
-        const imagePath = path.join(uploadsDir, path.basename(student.image)); // ✅ fix: ensure correct image path
-        if (fs.existsSync(imagePath)) {
-          const filename = `${student.registrationNumber}_${student.firstName}${path.extname(imagePath)}`;
-          archive.file(imagePath, { name: filename });
-        } else {
-          console.warn("Missing image for student:", student._id, imagePath);
-        }
-      }
-    }
-
-    archive.finalize();
-  } catch (error) {
-    console.error("ZIP creation error:", error);
-    res.status(500).json({ message: "Failed to create ZIP file" });
-  }
-});
 
 export default router;
