@@ -19,11 +19,10 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    const { firstName, registrationNumber } = req.body;
-    const ext = path.extname(file.originalname);
-    const filename = `${registrationNumber}_${firstName}${ext}`;
-    cb(null, filename);
-  },
+  const ext = path.extname(file.originalname);
+  const tempName = `temp_${Date.now()}${ext}`;
+  cb(null, tempName);
+},
 });
 
 const upload = multer({
@@ -97,6 +96,33 @@ router.get("/:id", protect, async (req, res) => {
 });
 
 // Create a new student with image upload
+// router.post("/", protect, (req, res) => {
+//   upload(req, res, async (err) => {
+//     if (err) {
+//       return res.status(400).json({ message: err.message });
+//     }
+//     try {
+//       if (!mongoose.Types.ObjectId.isValid(req.user.userId)) {
+//         return res.status(401).json({ message: "Invalid user ID" });
+//       }
+//       console.log("Received req.body:", req.body);
+//       const registrationNumber = await generateRegistrationNumber();
+//       const newStudent = new Data({
+//         ...req.body,
+//         registrationNumber,
+//         createdBy: req.user.userId,
+//         image: req.file ? `/uploads/${req.file.filename}` : undefined,
+//       });
+//       const savedStudent = await newStudent.save({ runValidators: true });
+//       res.status(201).json(savedStudent);
+//     } catch (error) {
+//       console.error("Error creating student:", error);
+//       res.status(400).json({ message: error.message });
+//     }
+//   });
+// });
+
+// Create a new student with image upload
 router.post("/", protect, (req, res) => {
   upload(req, res, async (err) => {
     if (err) {
@@ -106,14 +132,26 @@ router.post("/", protect, (req, res) => {
       if (!mongoose.Types.ObjectId.isValid(req.user.userId)) {
         return res.status(401).json({ message: "Invalid user ID" });
       }
-      console.log("Received req.body:", req.body);
+
       const registrationNumber = await generateRegistrationNumber();
+      const { firstName } = req.body;
+
+      let imagePath;
+      if (req.file) {
+        const ext = path.extname(req.file.originalname);
+        const newFilename = `${registrationNumber}_${firstName}${ext}`;
+        const newPath = path.join(req.file.destination, newFilename);
+        fs.renameSync(req.file.path, newPath);
+        imagePath = `/uploads/${newFilename}`;
+      }
+
       const newStudent = new Data({
         ...req.body,
         registrationNumber,
         createdBy: req.user.userId,
-        image: req.file ? `/uploads/${req.file.filename}` : undefined,
+        image: imagePath,
       });
+
       const savedStudent = await newStudent.save({ runValidators: true });
       res.status(201).json(savedStudent);
     } catch (error) {
@@ -123,31 +161,82 @@ router.post("/", protect, (req, res) => {
   });
 });
 
+
 // Update a student with image upload
+// router.put("/:id", protect, (req, res) => {
+//   upload(req, res, async (err) => {
+//     if (err) {
+//       return res.status(400).json({ message: err.message });
+//     }
+//     try {
+//       if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+//         return res.status(400).json({ message: "Invalid student ID format" });
+//       }
+//       if (!mongoose.Types.ObjectId.isValid(req.user.userId)) {
+//         return res.status(401).json({ message: "Invalid user ID" });
+//       }
+//       const updateData = {
+//         ...req.body,
+//         image: req.file ? `/uploads/${req.file.filename}` : req.body.image,
+//       };
+//       const updatedStudent = await Data.findOneAndUpdate(
+//         { _id: req.params.id, createdBy: req.user.userId },
+//         updateData,
+//         { new: true, runValidators: true }
+//       );
+//       if (!updatedStudent) {
+//         return res.status(404).json({ message: "Student not found or unauthorized" });
+//       }
+//       res.json(updatedStudent);
+//     } catch (error) {
+//       console.error("Error updating student:", error);
+//       res.status(400).json({ message: error.message });
+//     }
+//   });
+// });
+
 router.put("/:id", protect, (req, res) => {
   upload(req, res, async (err) => {
     if (err) {
       return res.status(400).json({ message: err.message });
     }
+
     try {
-      if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        return res.status(400).json({ message: "Invalid student ID format" });
+      if (!mongoose.Types.ObjectId.isValid(req.params.id) || !mongoose.Types.ObjectId.isValid(req.user.userId)) {
+        return res.status(400).json({ message: "Invalid ID" });
       }
-      if (!mongoose.Types.ObjectId.isValid(req.user.userId)) {
-        return res.status(401).json({ message: "Invalid user ID" });
-      }
-      const updateData = {
-        ...req.body,
-        image: req.file ? `/uploads/${req.file.filename}` : req.body.image,
-      };
-      const updatedStudent = await Data.findOneAndUpdate(
-        { _id: req.params.id, createdBy: req.user.userId },
-        updateData,
-        { new: true, runValidators: true }
-      );
-      if (!updatedStudent) {
+
+      const student = await Data.findById(req.params.id);
+      if (!student || String(student.createdBy) !== req.user.userId) {
         return res.status(404).json({ message: "Student not found or unauthorized" });
       }
+
+      let imagePath = req.body.image;
+      if (req.file) {
+        const ext = path.extname(req.file.originalname);
+        const newFilename = `${student.registrationNumber}_${req.body.firstName || student.firstName}${ext}`;
+        const newPath = path.join(req.file.destination, newFilename);
+        fs.renameSync(req.file.path, newPath);
+        imagePath = `/uploads/${newFilename}`;
+
+        // Delete old image
+        if (student.image) {
+          const oldPath = path.join(process.cwd(), student.image);
+          if (fs.existsSync(oldPath)) {
+            fs.unlinkSync(oldPath);
+          }
+        }
+      }
+
+      const updatedStudent = await Data.findOneAndUpdate(
+        { _id: req.params.id, createdBy: req.user.userId },
+        {
+          ...req.body,
+          image: imagePath,
+        },
+        { new: true, runValidators: true }
+      );
+
       res.json(updatedStudent);
     } catch (error) {
       console.error("Error updating student:", error);
@@ -155,6 +244,7 @@ router.put("/:id", protect, (req, res) => {
     }
   });
 });
+
 
 // Delete a student
 router.delete("/:id", protect, async (req, res) => {
