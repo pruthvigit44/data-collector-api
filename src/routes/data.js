@@ -82,7 +82,8 @@ router.post("/", protect, (req, res) => {
 
     try {
       const registrationNumber = await generateRegistrationNumber();
-      const { firstName } = req.body;
+
+      const { street, city, state, zip, ...rest } = req.body;
 
       let imagePath;
       if (req.file && req.file.path) {
@@ -90,10 +91,16 @@ router.post("/", protect, (req, res) => {
       }
 
       const newStudent = new Data({
-        ...req.body,
+        ...rest,
         registrationNumber,
         createdBy: req.user.userId,
         image: imagePath,
+        address: {
+          street,
+          city,
+          state,
+          zip,
+        },
       });
 
       const savedStudent = await newStudent.save({ runValidators: true });
@@ -117,6 +124,8 @@ router.put("/:id", protect, (req, res) => {
         return res.status(404).json({ message: "Not found or unauthorized" });
       }
 
+      const { street, city, state, zip, ...rest } = req.body;
+
       let imagePath = student.image;
       if (req.file && req.file.path) {
         imagePath = req.file.path;
@@ -130,12 +139,22 @@ router.put("/:id", protect, (req, res) => {
 
       const updatedStudent = await Data.findOneAndUpdate(
         { _id: id, createdBy: req.user.userId },
-        { ...req.body, image: imagePath },
+        {
+          ...rest,
+          image: imagePath,
+          address: {
+            street,
+            city,
+            state,
+            zip,
+          },
+        },
         { new: true, runValidators: true }
       );
 
       res.json(updatedStudent);
     } catch (error) {
+      console.error("Update error:", error);
       res.status(400).json({ message: error.message });
     }
   });
