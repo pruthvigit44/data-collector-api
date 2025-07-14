@@ -75,93 +75,6 @@ router.get("/:id", protect, async (req, res) => {
   if (!student) return res.status(404).json({ message: "Not found or unauthorized" });
   res.json(student);
 });
-
-// CREATE student
-// router.post("/", protect, (req, res) => {
-//   upload(req, res, async (err) => {
-//     if (err) return res.status(400).json({ message: err.message });
-
-//     try {
-//       const registrationNumber = await generateRegistrationNumber();
-
-//       const { street, city, state, zip, ...rest } = req.body;
-
-//       let imagePath;
-//       if (req.file && req.file.path) {
-//         imagePath = req.file.path; // Cloudinary URL
-//       }
-
-//       const newStudent = new Data({
-//         ...rest,
-//         registrationNumber,
-//         createdBy: req.user.userId,
-//         image: imagePath,
-//         address: {
-//           street,
-//           city,
-//           state,
-//           zip,
-//         },
-//       });
-
-//       const savedStudent = await newStudent.save({ runValidators: true });
-//       res.status(201).json(savedStudent);
-//     } catch (error) {
-//       console.error("Create error:", error);
-//       res.status(400).json({ message: error.message });
-//     }
-//   });
-// });
-
-// UPDATE student
-// router.put("/:id", protect, (req, res) => {
-//   upload(req, res, async (err) => {
-//     if (err) return res.status(400).json({ message: err.message });
-
-//     try {
-//       const { id } = req.params;
-//       const student = await Data.findById(id);
-//       if (!student || String(student.createdBy) !== req.user.userId) {
-//         return res.status(404).json({ message: "Not found or unauthorized" });
-//       }
-
-//       const { street, city, state, zip, ...rest } = req.body;
-
-//       let imagePath = student.image;
-//       if (req.file && req.file.path) {
-//         imagePath = req.file.path;
-
-//         // Optional: delete old image from Cloudinary
-//         if (student.image) {
-//           const publicId = student.image.split('/').pop().split('.')[0];
-//           await cloudinary.uploader.destroy(`student-images/${publicId}`);
-//         }
-//       }
-
-//       const updatedStudent = await Data.findOneAndUpdate(
-//         { _id: id, createdBy: req.user.userId },
-//         {
-//           ...rest,
-//           image: imagePath,
-//           address: {
-//             street,
-//             city,
-//             state,
-//             zip,
-//           },
-//         },
-//         { new: true, runValidators: true }
-//       );
-
-//       res.json(updatedStudent);
-//     } catch (error) {
-//       console.error("Update error:", error);
-//       res.status(400).json({ message: error.message });
-//     }
-//   });
-// });
-
-
 router.post("/", protect, (req, res) => {
   upload(req, res, async (err) => {
     if (err) {
@@ -177,7 +90,7 @@ router.post("/", protect, (req, res) => {
       let imagePath = req.file ? req.file.path : undefined;
       if (!imagePath && rest.image) {
         console.warn("No file uploaded, using existing image if any");
-        imagePath = rest.image; // Fallback to existing image URL if editing
+        imagePath = rest.image; // Fallback to existing image if editing
       }
 
       const newStudent = new Data({
@@ -239,7 +152,6 @@ router.put("/:id", protect, (req, res) => {
     }
   });
 });
-
 // DELETE student
 router.delete("/:id", protect, async (req, res) => {
   const { id } = req.params;

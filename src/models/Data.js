@@ -2,6 +2,7 @@ import mongoose  from "mongoose";
 
 const dataSchema = new mongoose.Schema({
     firstName: { type: String, required: true },
+    middleName: { type: String },
     lastName: { type: String, required: true },
     registrationNumber: { type: String, required: true, unique: true, trim: true },
     dateOfBirth: { type: Date, required: true },
@@ -12,16 +13,14 @@ const dataSchema = new mongoose.Schema({
         state: String,
         zip: String
     },
-    parentName: { type: String, required: true },
-    parentContact: { type: String, required: true },
+    contact: { type: String, required: true },
     email: { type: String },
     class: { type: String, required: true },
     section: { type: String },
     admissionDate: { type: Date, default: Date.now },
     remarks: { type: String },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Reference to the user who created the record
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     image: { type: String },    
-
 });
 
 const Data = mongoose.model("Student", dataSchema);
