@@ -3,7 +3,6 @@ import express from "express";
 import Data from "../models/Data.js";
 import { protect } from "../middleware/auth.js";
 import multer from "multer";
-// import { cloudinary, storage } from "../lib/cloudinary.js";
 import { cloudinary, storage } from "../lib/cloudinary.js";
 import archiver from "archiver";
 import stream from "stream";
@@ -38,7 +37,7 @@ router.get("/", protect, async (req, res) => {
 // DOWNLOAD images as ZIP (Cloudinary URLs are fetched)
 router.get("/download-images", protect, async (req, res) => {
   try {
-    const students = await Data.find({ createdBy: req.user.userId }).select("image registrationNumber firstName");
+    const students = await Data.find({ createdBy: req.user.userId }).select("image registrationNumber firstName middleName lastName");
 
     const archive = archiver("zip", { zlib: { level: 9 } });
     res.setHeader("Content-Type", "application/zip");
@@ -54,7 +53,7 @@ router.get("/download-images", protect, async (req, res) => {
         const readable = new stream.PassThrough();
         readable.end(Buffer.from(buffer));
 
-        const filename = `${student.registrationNumber}_${student.firstName}.jpg`;
+        const filename = `${student.registrationNumber}_${student.firstName}${student.middleName ? "_" + student.middleName : ""}_${student.lastName}.jpg`;
         archive.append(readable, { name: filename });
       }
     }
@@ -75,13 +74,14 @@ router.get("/:id", protect, async (req, res) => {
   if (!student) return res.status(404).json({ message: "Not found or unauthorized" });
   res.json(student);
 });
+
 router.post("/", protect, (req, res) => {
   upload(req, res, async (err) => {
     if (err) {
       console.error("Multer Error:", err.message, err.stack);
       return res.status(400).json({ message: `Upload failed: ${err.message || 'Unknown error'}` });
     }
-    console.log("Received File:", req.file); // Log the file object
+    console.log("Received File:", req.file);
     try {
       const registrationNumber = await generateRegistrationNumber();
 
@@ -90,7 +90,7 @@ router.post("/", protect, (req, res) => {
       let imagePath = req.file ? req.file.path : undefined;
       if (!imagePath && rest.image) {
         console.warn("No file uploaded, using existing image if any");
-        imagePath = rest.image; // Fallback to existing image if editing
+        imagePath = rest.image;
       }
 
       const newStudent = new Data({
@@ -116,7 +116,7 @@ router.put("/:id", protect, (req, res) => {
       console.error("Multer Error:", err.message, err.stack);
       return res.status(400).json({ message: `Upload failed: ${err.message || 'Unknown error'}` });
     }
-    console.log("Received File:", req.file); // Log the file object
+    console.log("Received File:", req.file);
     try {
       const { id } = req.params;
       const student = await Data.findById(id);
@@ -152,6 +152,7 @@ router.put("/:id", protect, (req, res) => {
     }
   });
 });
+
 // DELETE student
 router.delete("/:id", protect, async (req, res) => {
   const { id } = req.params;

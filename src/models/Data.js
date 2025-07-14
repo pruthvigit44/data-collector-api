@@ -1,4 +1,4 @@
-import mongoose  from "mongoose";
+import mongoose from "mongoose";
 
 const dataSchema = new mongoose.Schema({
     firstName: { type: String, required: true },
@@ -17,7 +17,7 @@ const dataSchema = new mongoose.Schema({
     email: { type: String },
     class: { type: String, required: true },
     section: { type: String },
-    admissionDate: { type: Date, default: Date.now },
+    createdDate: { type: Date, default: Date.now },
     remarks: { type: String },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     image: { type: String },    
