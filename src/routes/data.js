@@ -165,7 +165,7 @@ router.post("/", protect, (req, res) => {
   upload(req, res, async (err) => {
     if (err) {
       console.error("Multer Error:", err.message, err.stack);
-      return res.status(400).json({ message: `Upload failed: ${err.message}` });
+      return res.status(400).json({ message: `Upload failed: ${err.message || 'Unknown error'}` });
     }
     console.log("Received File:", req.file); // Log the file object
     try {
@@ -173,7 +173,7 @@ router.post("/", protect, (req, res) => {
 
       const { street, city, state, zip, ...rest } = req.body;
 
-      let imagePath = req.file ? req.file.path : undefined; // Use req.file.path if available
+      let imagePath = req.file ? req.file.path : undefined;
       if (!imagePath && rest.image) {
         console.warn("No file uploaded, using existing image if any");
         imagePath = rest.image; // Fallback to existing image URL if editing
@@ -200,7 +200,7 @@ router.put("/:id", protect, (req, res) => {
   upload(req, res, async (err) => {
     if (err) {
       console.error("Multer Error:", err.message, err.stack);
-      return res.status(400).json({ message: `Upload failed: ${err.message}` });
+      return res.status(400).json({ message: `Upload failed: ${err.message || 'Unknown error'}` });
     }
     console.log("Received File:", req.file); // Log the file object
     try {
@@ -212,7 +212,7 @@ router.put("/:id", protect, (req, res) => {
 
       const { street, city, state, zip, ...rest } = req.body;
 
-      let imagePath = student.image; // Default to existing image
+      let imagePath = student.image;
       if (req.file && req.file.path) {
         imagePath = req.file.path;
         if (student.image) {
