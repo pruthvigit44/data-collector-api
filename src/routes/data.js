@@ -76,18 +76,107 @@ router.get("/:id", protect, async (req, res) => {
 });
 
 // CREATE student
+// router.post("/", protect, (req, res) => {
+//   upload(req, res, async (err) => {
+//     if (err) return res.status(400).json({ message: err.message });
+
+//     try {
+//       const registrationNumber = await generateRegistrationNumber();
+
+//       const { street, city, state, zip, ...rest } = req.body;
+
+//       let imagePath;
+//       if (req.file && req.file.path) {
+//         imagePath = req.file.path; // Cloudinary URL
+//       }
+
+//       const newStudent = new Data({
+//         ...rest,
+//         registrationNumber,
+//         createdBy: req.user.userId,
+//         image: imagePath,
+//         address: {
+//           street,
+//           city,
+//           state,
+//           zip,
+//         },
+//       });
+
+//       const savedStudent = await newStudent.save({ runValidators: true });
+//       res.status(201).json(savedStudent);
+//     } catch (error) {
+//       console.error("Create error:", error);
+//       res.status(400).json({ message: error.message });
+//     }
+//   });
+// });
+
+// UPDATE student
+// router.put("/:id", protect, (req, res) => {
+//   upload(req, res, async (err) => {
+//     if (err) return res.status(400).json({ message: err.message });
+
+//     try {
+//       const { id } = req.params;
+//       const student = await Data.findById(id);
+//       if (!student || String(student.createdBy) !== req.user.userId) {
+//         return res.status(404).json({ message: "Not found or unauthorized" });
+//       }
+
+//       const { street, city, state, zip, ...rest } = req.body;
+
+//       let imagePath = student.image;
+//       if (req.file && req.file.path) {
+//         imagePath = req.file.path;
+
+//         // Optional: delete old image from Cloudinary
+//         if (student.image) {
+//           const publicId = student.image.split('/').pop().split('.')[0];
+//           await cloudinary.uploader.destroy(`student-images/${publicId}`);
+//         }
+//       }
+
+//       const updatedStudent = await Data.findOneAndUpdate(
+//         { _id: id, createdBy: req.user.userId },
+//         {
+//           ...rest,
+//           image: imagePath,
+//           address: {
+//             street,
+//             city,
+//             state,
+//             zip,
+//           },
+//         },
+//         { new: true, runValidators: true }
+//       );
+
+//       res.json(updatedStudent);
+//     } catch (error) {
+//       console.error("Update error:", error);
+//       res.status(400).json({ message: error.message });
+//     }
+//   });
+// });
+
+
 router.post("/", protect, (req, res) => {
   upload(req, res, async (err) => {
-    if (err) return res.status(400).json({ message: err.message });
-
+    if (err) {
+      console.error("Multer Error:", err.message, err.stack);
+      return res.status(400).json({ message: `Upload failed: ${err.message}` });
+    }
+    console.log("Received File:", req.file); // Log the file object
     try {
       const registrationNumber = await generateRegistrationNumber();
 
       const { street, city, state, zip, ...rest } = req.body;
 
-      let imagePath;
-      if (req.file && req.file.path) {
-        imagePath = req.file.path; // Cloudinary URL
+      let imagePath = req.file ? req.file.path : undefined; // Use req.file.path if available
+      if (!imagePath && rest.image) {
+        console.warn("No file uploaded, using existing image if any");
+        imagePath = rest.image; // Fallback to existing image URL if editing
       }
 
       const newStudent = new Data({
@@ -95,28 +184,25 @@ router.post("/", protect, (req, res) => {
         registrationNumber,
         createdBy: req.user.userId,
         image: imagePath,
-        address: {
-          street,
-          city,
-          state,
-          zip,
-        },
+        address: { street, city, state, zip },
       });
 
       const savedStudent = await newStudent.save({ runValidators: true });
       res.status(201).json(savedStudent);
     } catch (error) {
-      console.error("Create error:", error);
-      res.status(400).json({ message: error.message });
+      console.error("Create error:", error.message, error.stack);
+      res.status(400).json({ message: `Failed to save student: ${error.message}` });
     }
   });
 });
 
-// UPDATE student
 router.put("/:id", protect, (req, res) => {
   upload(req, res, async (err) => {
-    if (err) return res.status(400).json({ message: err.message });
-
+    if (err) {
+      console.error("Multer Error:", err.message, err.stack);
+      return res.status(400).json({ message: `Upload failed: ${err.message}` });
+    }
+    console.log("Received File:", req.file); // Log the file object
     try {
       const { id } = req.params;
       const student = await Data.findById(id);
@@ -126,11 +212,9 @@ router.put("/:id", protect, (req, res) => {
 
       const { street, city, state, zip, ...rest } = req.body;
 
-      let imagePath = student.image;
+      let imagePath = student.image; // Default to existing image
       if (req.file && req.file.path) {
         imagePath = req.file.path;
-
-        // Optional: delete old image from Cloudinary
         if (student.image) {
           const publicId = student.image.split('/').pop().split('.')[0];
           await cloudinary.uploader.destroy(`student-images/${publicId}`);
@@ -142,20 +226,15 @@ router.put("/:id", protect, (req, res) => {
         {
           ...rest,
           image: imagePath,
-          address: {
-            street,
-            city,
-            state,
-            zip,
-          },
+          address: { street, city, state, zip },
         },
         { new: true, runValidators: true }
       );
 
       res.json(updatedStudent);
     } catch (error) {
-      console.error("Update error:", error);
-      res.status(400).json({ message: error.message });
+      console.error("Update error:", error.message, error.stack);
+      res.status(400).json({ message: `Failed to update student: ${error.message}` });
     }
   });
 });
